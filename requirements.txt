@@ -2,5 +2,5 @@ streamlit==1.37.0
 pandas==2.2.2
 sqlalchemy==2.0.32
 pg8000==1.30.2
-certify
+certifi
 matplotlib
