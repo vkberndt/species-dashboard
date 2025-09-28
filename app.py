@@ -19,16 +19,17 @@ def load_data(days: int = 7):
     # Debug line to confirm dialect/driver
     st.write(f"Dialect: {engine.dialect.name}, Driver: {engine.dialect.driver}")
 
+    # Use make_interval so days can be passed as an integer parameter
     query = """
         SELECT date_trunc('day', ts) AS day,
                species,
                COUNT(*) AS count
         FROM public.species_logins
-        WHERE ts >= NOW() - INTERVAL %s
+        WHERE ts >= NOW() - make_interval(days := %s)
         GROUP BY 1, 2
         ORDER BY 1 ASC, 2 ASC
     """
-    df = pd.read_sql(query, engine, params=(f"{days} days",))
+    df = pd.read_sql(query, engine, params=(days,))
     return df
 
 # --- Streamlit UI ---
