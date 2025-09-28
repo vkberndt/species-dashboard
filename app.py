@@ -7,7 +7,10 @@ DB_DSN = st.secrets["db"]["dsn"]
 @st.cache_data(ttl=300)
 def load_data(days: int = 7):
     """Fetch species logins for the last N days directly from species_logins."""
-    engine = create_engine(DB_DSN)
+    # Explicitly force pg8000 driver (Really annoying Streamlit issue)
+    engine = create_engine(DB_DSN, connect_args={"sslmode": "require"})
+    st.write(f"Dialect: {engine.dialect.name}, Driver: {engine.dialect.driver}")  # Debug line
+
     query = """
         SELECT date_trunc('day', ts) AS day,
                species,
