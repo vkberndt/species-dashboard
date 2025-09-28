@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import ssl
+import matplotlib.pyplot as plt
 from sqlalchemy import create_engine
 
 DB_DSN = st.secrets["db"]["dsn"]
