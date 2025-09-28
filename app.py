@@ -1,16 +1,19 @@
 import streamlit as st
 import pandas as pd
+import ssl
 from sqlalchemy import create_engine
 
-# Pull DSN from Streamlit secrets
 DB_DSN = st.secrets["db"]["dsn"]
 
 @st.cache_data(ttl=300)
 def load_data(days: int = 7):
     """Fetch species logins for the last N days directly from species_logins."""
-    # Explicitly enforce SSL for pg8000 (Annoying issue)
-    engine = create_engine(DB_DSN, connect_args={"ssl": True})
-    st.write(f"Dialect: {engine.dialect.name}, Driver: {engine.dialect.driver}")  # Debug line
+    # Create a default SSL context
+    ssl_context = ssl.create_default_context()
+
+    # Pass it to pg8000 via connect_args
+    engine = create_engine(DB_DSN, connect_args={"ssl_context": ssl_context})
+    st.write(f"Dialect: {engine.dialect.name}, Driver: {engine.dialect.driver}")  # Debug
 
     query = """
         SELECT date_trunc('day', ts) AS day,
@@ -25,7 +28,7 @@ def load_data(days: int = 7):
     return df
 
 # --- Streamlit UI ---
-st.title("🦖 Species Logins")
+st.title("Species Logins")
 
 days = st.slider("Select number of days", 1, 30, 7)
 df = load_data(days)
