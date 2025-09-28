@@ -31,20 +31,14 @@ df = load_data(days)
 if df.empty:
     st.warning("No data available yet. Waiting for bot inserts...")
 else:
-    # --- Species distribution chart (total counts) ---
+    # --- Species distribution chart (bar) ---
     st.subheader("Species distribution (total logins)")
     species_totals = df.groupby("species")["count"].sum().reset_index()
     species_totals = species_totals.sort_values("count", ascending=False)
 
     st.bar_chart(species_totals.set_index("species"))
 
-    # --- Time series chart (sorted species order) ---
-    st.subheader("Logins over time (species ranked by total)")
-    # Pivot for line chart
-    pivoted = df.pivot(index="day", columns="species", values="count").fillna(0)
-
-    # Reorder columns by total counts
-    species_order = species_totals["species"].tolist()
-    pivoted = pivoted[species_order]
-
-    st.line_chart(pivoted)
+    # --- Ranked written-out chart ---
+    st.subheader("Leaderboard (highest to lowest)")
+    for i, row in species_totals.iterrows():
+        st.write(f"**{row['species']}** — {row['count']} logins")
