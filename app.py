@@ -3,23 +3,13 @@ import pandas as pd
 import ssl
 from sqlalchemy import create_engine
 
-# DSN is stored in .streamlit/secrets.toml
 DB_DSN = st.secrets["db"]["dsn"]
 
 @st.cache_data(ttl=300)
 def load_data(days: int = 7):
-    """Fetch species logins for the last N days directly from species_logins."""
-
-    # Use the Supabase-provided CA cert (prod-ca-2021.crt)
     ssl_context = ssl.create_default_context(cafile="prod-ca-2021.crt")
-
-    # Create engine with pg8000 and pinned SSL context
     engine = create_engine(DB_DSN, connect_args={"ssl_context": ssl_context})
 
-    # Debug line to confirm dialect/driver
-    st.write(f"Dialect: {engine.dialect.name}, Driver: {engine.dialect.driver}")
-
-    # Use make_interval so days can be passed as an integer parameter
     query = """
         SELECT date_trunc('day', ts) AS day,
                species,
@@ -41,5 +31,20 @@ df = load_data(days)
 if df.empty:
     st.warning("No data available yet. Waiting for bot inserts...")
 else:
-    st.dataframe(df)
-    st.line_chart(df.pivot(index="day", columns="species", values="count"))
+    # --- Species distribution chart (total counts) ---
+    st.subheader("Species distribution (total logins)")
+    species_totals = df.groupby("species")["count"].sum().reset_index()
+    species_totals = species_totals.sort_values("count", ascending=False)
+
+    st.bar_chart(species_totals.set_index("species"))
+
+    # --- Time series chart (sorted species order) ---
+    st.subheader("Logins over time (species ranked by total)")
+    # Pivot for line chart
+    pivoted = df.pivot(index="day", columns="species", values="count").fillna(0)
+
+    # Reorder columns by total counts
+    species_order = species_totals["species"].tolist()
+    pivoted = pivoted[species_order]
+
+    st.line_chart(pivoted)
