@@ -64,10 +64,30 @@ else:
 
     st.bar_chart(species_totals.set_index("species"))
 
-    # --- Leaderboard ---
-    st.subheader("Leaderboard (highest to lowest)")
-    for _, row in species_totals.iterrows():
-        st.write(f"**{row['species']}** — {row['count']} logins")
+# --- Leaderboard split by diet ---
+st.subheader("Top 5 Herbivores")
+herbivores = (
+    species_totals.merge(df_diet[["diet"]].drop_duplicates(), left_on="species", right_on="species", how="left")
+    if "diet" in df_diet.columns else
+    species_totals
+)
+
+# Join species_totals with diet classification
+ssl_context = ssl.create_default_context(cafile="prod-ca-2021.crt")
+engine = create_engine(DB_DSN, connect_args={"ssl_context": ssl_context})
+diet_lookup = pd.read_sql("SELECT species, diet FROM public.species_diets", engine)
+
+species_with_diet = species_totals.merge(diet_lookup, on="species", how="left")
+
+# Top 5 herbivores
+top_herbivores = species_with_diet[species_with_diet["diet"] == "herbivore"].head(5)
+for _, row in top_herbivores.iterrows():
+    st.write(f"**{row['species']}** — {row['count']} logins")
+
+st.subheader("Top 5 Carnivores")
+top_carnivores = species_with_diet[species_with_diet["diet"] == "carnivore"].head(5)
+for _, row in top_carnivores.iterrows():
+    st.write(f"**{row['species']}** — {row['count']} logins")
 
     # --- Carnivore vs Herbivore pie chart ---
     st.subheader("Carnivores vs Herbivores")
