@@ -1,22 +1,22 @@
 import streamlit as st
 import pandas as pd
 import ssl
-import certifi
 from sqlalchemy import create_engine
 
-# Pull DSN from Streamlit secrets (no query params like ?sslmode=require)
+# Pull DSN from Streamlit secrets (make sure it has no ?sslmode=require)
 DB_DSN = st.secrets["db"]["dsn"]
 
 @st.cache_data(ttl=300)
 def load_data(days: int = 7):
     """Fetch species logins for the last N days directly from species_logins."""
-    # Create an SSL context using certifi's CA bundle (fixes CERTIFICATE_VERIFY_FAILED)
-    ssl_context = ssl.create_default_context(cafile=certifi.where())
 
-    # Use pg8000 via SQLAlchemy, passing the SSL context explicitly
+    # RDS CA
+    ssl_context = ssl.create_default_context(cafile="rds-ca.pem")
+
+    # Create engine with pg8000 and SSL context
     engine = create_engine(DB_DSN, connect_args={"ssl_context": ssl_context})
 
-    # Optional: confirm dialect/driver in the UI
+    # Debug line to confirm driver
     st.write(f"Dialect: {engine.dialect.name}, Driver: {engine.dialect.driver}")
 
     query = """
