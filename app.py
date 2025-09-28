@@ -65,27 +65,33 @@ else:
     st.bar_chart(species_totals.set_index("species"))
 
 # --- Leaderboard split by diet ---
-st.subheader("Top 5 Herbivores")
-herbivores = (
-    species_totals.merge(df_diet[["diet"]].drop_duplicates(), left_on="species", right_on="species", how="left")
-    if "diet" in df_diet.columns else
-    species_totals
-)
+st.subheader("Top 5 Herbivores and Carnivores")
 
-# Join species_totals with diet classification
+# Pull the diet lookup table once
 ssl_context = ssl.create_default_context(cafile="prod-ca-2021.crt")
 engine = create_engine(DB_DSN, connect_args={"ssl_context": ssl_context})
 diet_lookup = pd.read_sql("SELECT species, diet FROM public.species_diets", engine)
 
+# Merge species totals with diet classification
 species_with_diet = species_totals.merge(diet_lookup, on="species", how="left")
 
 # Top 5 herbivores
-top_herbivores = species_with_diet[species_with_diet["diet"] == "herbivore"].head(5)
+st.markdown("### 🥦 Top 5 Herbivores")
+top_herbivores = (
+    species_with_diet[species_with_diet["diet"] == "herbivore"]
+    .sort_values("count", ascending=False)
+    .head(5)
+)
 for _, row in top_herbivores.iterrows():
     st.write(f"**{row['species']}** — {row['count']} logins")
 
-st.subheader("Top 5 Carnivores")
-top_carnivores = species_with_diet[species_with_diet["diet"] == "carnivore"].head(5)
+# Top 5 carnivores
+st.markdown("### 🍖 Top 5 Carnivores")
+top_carnivores = (
+    species_with_diet[species_with_diet["diet"] == "carnivore"]
+    .sort_values("count", ascending=False)
+    .head(5)
+)
 for _, row in top_carnivores.iterrows():
     st.write(f"**{row['species']}** — {row['count']} logins")
 
