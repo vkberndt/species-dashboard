@@ -3,17 +3,18 @@ import pandas as pd
 import ssl
 from sqlalchemy import create_engine
 
-# Pull DSN from Streamlit secrets (make sure it has no ?sslmode=require)
+# Pull DSN from Streamlit secrets
+# Make sure your DSN has no ?sslmode=require
 DB_DSN = st.secrets["db"]["dsn"]
 
 @st.cache_data(ttl=300)
 def load_data(days: int = 7):
     """Fetch species logins for the last N days directly from species_logins."""
 
-    # RDS CA
-    ssl_context = ssl.create_default_context(cafile="rds-ca.pem")
+    # Disable SSL verification (quick + insecure, but works)
+    ssl_context = ssl._create_unverified_context()
 
-    # Create engine with pg8000 and SSL context
+    # Create engine with pg8000 and unverified SSL context
     engine = create_engine(DB_DSN, connect_args={"ssl_context": ssl_context})
 
     # Debug line to confirm driver
@@ -32,7 +33,7 @@ def load_data(days: int = 7):
     return df
 
 # --- Streamlit UI ---
-st.title("Species Logins")
+st.title("🦖 Species Logins")
 
 days = st.slider("Select number of days", 1, 30, 7)
 df = load_data(days)
