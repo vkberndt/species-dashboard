@@ -3,21 +3,20 @@ import pandas as pd
 import ssl
 from sqlalchemy import create_engine
 
-# Pull DSN from Streamlit secrets
-# Make sure your DSN has no ?sslmode=require
+# DSN is stored in .streamlit/secrets.toml
 DB_DSN = st.secrets["db"]["dsn"]
 
 @st.cache_data(ttl=300)
 def load_data(days: int = 7):
     """Fetch species logins for the last N days directly from species_logins."""
 
-    # Disable SSL verification (quick + insecure, but works)
-    ssl_context = ssl._create_unverified_context()
+    # Use the Supabase-provided CA cert (prod-ca-2021.crt)
+    ssl_context = ssl.create_default_context(cafile="prod-ca-2021.crt")
 
-    # Create engine with pg8000 and unverified SSL context
+    # Create engine with pg8000 and pinned SSL context
     engine = create_engine(DB_DSN, connect_args={"ssl_context": ssl_context})
 
-    # Debug line to confirm driver
+    # Debug line to confirm dialect/driver
     st.write(f"Dialect: {engine.dialect.name}, Driver: {engine.dialect.driver}")
 
     query = """
