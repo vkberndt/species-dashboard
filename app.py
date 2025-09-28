@@ -6,7 +6,8 @@ from sqlalchemy import create_engine
 DB_DSN = st.secrets["db"]["dsn"]
 
 @st.cache_data(ttl=300)
-def load_data(days: int = 7):
+def load_species_data(days: int = 7):
+    """Fetch species logins for the last N days."""
     ssl_context = ssl.create_default_context(cafile="prod-ca-2021.crt")
     engine = create_engine(DB_DSN, connect_args={"ssl_context": ssl_context})
 
@@ -19,26 +20,61 @@ def load_data(days: int = 7):
         GROUP BY 1, 2
         ORDER BY 1 ASC, 2 ASC
     """
-    df = pd.read_sql(query, engine, params=(days,))
-    return df
+    return pd.read_sql(query, engine, params=(days,))
+
+@st.cache_data(ttl=300)
+def load_diet_data(days: int = 7):
+    """Fetch carnivore vs herbivore totals via join with species_diets."""
+    ssl_context = ssl.create_default_context(cafile="prod-ca-2021.crt")
+    engine = create_engine(DB_DSN, connect_args={"ssl_context": ssl_context})
+
+    query = """
+        SELECT d.diet,
+               SUM(l.count) AS total_count
+        FROM (
+            SELECT date_trunc('day', ts) AS day,
+                   species,
+                   COUNT(*) AS count
+            FROM public.species_logins
+            WHERE ts >= NOW() - make_interval(days := %s)
+            GROUP BY 1, 2
+        ) l
+        JOIN public.species_diets d ON l.species = d.species
+        GROUP BY d.diet
+        ORDER BY total_count DESC;
+    """
+    return pd.read_sql(query, engine, params=(days,))
 
 # --- Streamlit UI ---
-st.title("🦖 Species Logins")
+st.title("🦖 Species Logins Dashboard")
 
 days = st.slider("Select number of days", 1, 30, 7)
-df = load_data(days)
 
-if df.empty:
+# Species-level data
+df_species = load_species_data(days)
+
+if df_species.empty:
     st.warning("No data available yet. Waiting for bot inserts...")
 else:
-    # --- Species distribution chart (bar) ---
+    # --- Species distribution bar chart ---
     st.subheader("Species distribution (total logins)")
-    species_totals = df.groupby("species")["count"].sum().reset_index()
+    species_totals = df_species.groupby("species")["count"].sum().reset_index()
     species_totals = species_totals.sort_values("count", ascending=False)
 
     st.bar_chart(species_totals.set_index("species"))
 
-    # --- Ranked written-out chart ---
+    # --- Leaderboard ---
     st.subheader("Leaderboard (highest to lowest)")
-    for i, row in species_totals.iterrows():
+    for _, row in species_totals.iterrows():
         st.write(f"**{row['species']}** — {row['count']} logins")
+
+    # --- Carnivore vs Herbivore pie chart ---
+    st.subheader("Carnivores vs Herbivores")
+    df_diet = load_diet_data(days)
+
+    if not df_diet.empty:
+        st.pyplot(
+            df_diet.set_index("diet")
+                   .plot.pie(y="total_count", autopct="%1.1f%%", legend=False)
+                   .figure
+        )
